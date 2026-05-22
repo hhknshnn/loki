@@ -360,7 +360,37 @@ function drawEffects(dt) {
 
 function shoot() {
   if (!running || cat.cooldown > 0) return;
-  darts.push({ x: cat.x + cat.w*.32, y: cat.y - cat.h*.25, vy: -780, rot: -.18, w: 14, h: 38 });
+
+  // En yakındaki fareye doğru hafif nişan alır; böylece ekranın en solundaki fareler de vurulabilir.
+  let target = null;
+  let bestDist = Infinity;
+  for (const m of mice) {
+    const dx = Math.abs(m.x - cat.x);
+    if (m.y < cat.y && dx < bestDist) {
+      bestDist = dx;
+      target = m;
+    }
+  }
+
+  const muzzleSide = target && target.x < cat.x ? -0.26 : 0.32;
+  const startX = cat.x + cat.w * muzzleSide;
+  const startY = cat.y - cat.h * .25;
+
+  let vx = 0;
+  let vy = -780;
+  let rot = muzzleSide < 0 ? .18 : -.18;
+
+  if (target) {
+    const dx = target.x - startX;
+    const dy = target.y - startY;
+    const len = Math.max(1, Math.sqrt(dx*dx + dy*dy));
+    const speed = 800;
+    vx = dx / len * speed;
+    vy = dy / len * speed;
+    rot = Math.atan2(vy, vx) + Math.PI / 2;
+  }
+
+  darts.push({ x: startX, y: startY, vx, vy, rot, w: 14, h: 38 });
   cat.cooldown = 180;
   sfx.shoot();
 }
@@ -400,8 +430,10 @@ function update(dt, t) {
   }
 
   for (let i=darts.length-1;i>=0;i--) {
-    const d=darts[i]; d.y += d.vy*dt/1000;
-    if (d.y < -50) darts.splice(i,1);
+    const d=darts[i];
+    d.x += (d.vx || 0) * dt/1000;
+    d.y += d.vy * dt/1000;
+    if (d.y < -50 || d.x < -60 || d.x > vw + 60) darts.splice(i,1);
   }
 
   for (let i=mice.length-1;i>=0;i--) {
